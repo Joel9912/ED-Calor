@@ -28,10 +28,13 @@ y = np.linspace(0, 2, 41)
 X,Y = np.meshgrid(x,y)
 Z = condini(X,Y)
 
+W = Z
+W = posxy(X,Y)
+
 fig2 = plt.figure()
 ax2 = fig2.subplots()
 
-c = ax2.pcolor(X, Y, Z,edgecolors='k', linewidths=0.2, cmap=cm.jet, shading='auto')
+c = ax2.pcolor(X, Y, W,edgecolors='k', linewidths=0.2, cmap=cm.jet, shading='auto')
 
 ax2.set_xlabel("x", fontsize=15)
 ax2.set_ylabel("y", fontsize=15)
