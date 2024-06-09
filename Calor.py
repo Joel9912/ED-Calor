@@ -63,9 +63,10 @@ def act_estado(Z):
     return Z_nuevo
 
 #Generación de la malla y sus condiciones iniciales
+a = b = 2
 
-x = np.linspace(0, 2, 81)
-y = np.linspace(0, 2, 81)
+x = np.linspace(0, a, 81)
+y = np.linspace(0, b, 81)
 X,Y = np.meshgrid(x,y)
 Z = condini(X,Y)
 
