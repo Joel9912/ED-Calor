@@ -2,6 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
+def posxy(x,y):
+    if (x < 0.15):
+        return 1
+    if (x > 1.9):
+        return 0
+    if (y < 0.15):
+        return 2
+    if (y > 1.9):
+        return 3
+    else:
+        return 4
 def condini(x,y):
     z = np.ones_like(x)
     borde = (x < 0.15) | (x > 1.9) | (y < 0.15) | (y > 1.9)
