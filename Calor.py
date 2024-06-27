@@ -53,13 +53,13 @@ output_dir = 'D:\\Usuario\\Documentos\\CursosUCR\\Física\\Física-Computacional
 os.makedirs(output_dir, exist_ok=True)
 
 def save_imagen(Z, iteration):
-    fig, ax = plt.subplots(figsize=(10, 8), dpi=600)  # Ajusta el tamaño y la resolución según sea necesario
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=600)
     c = ax.pcolor(X, Y, Z, cmap=cm.jet, shading='auto', vmin=0, vmax=cmax)
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     fig.colorbar(c)
-    plt.ylim(0 - 0.9 * dy, b + dy)  # Ajusta los límites y
-    plt.xlim(0 - dx, a + dx)  # asegúrate de que toda la malla sea visible
+    plt.ylim(0 - 0.9 * dy, b + dy)
+    plt.xlim(0 - dx, a + dx)  
     plt.savefig(os.path.join(output_dir, f'iteracion_{iteration}.png'), bbox_inches='tight', pad_inches=0.1)
     plt.close(fig)
 
