@@ -2,111 +2,89 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from PIL import Image
 import imageio.v2 as imageio
+from numba import njit, prange
+import time
 
-cc = 20  # calor contiguo
-cmax = 500  # calor máximo
-const_diff = 1.0e-4  # constante de difusividad térmica
-dt = 0.032  # paso de tiempo
-m = 250
-dx = dy = 1 / m  # tamaño de la celda
+inicio_tiempo_global = time.time() #para calcular el tiempo de ejecución del código
+# Constantes
+cmax = 500 #condicion inicial borde a 500k
+cc = 50 #condición inicial contiguo al borde a 20k
+const_diff = 1.0e-4 #constante de difusión
+m = 500 #tamaño de la malla
+dx = dy = 1 / m #diferencial de espacio
+dt = (0.2 * dx**2 ) / const_diff  #diferencial de tiempo en función del tamaño de la malla
+# y de la constante de difusión para evitar errores en el cálculo es decir que const_diif*dt/dx**2 <= 0.2
+n = 40000 #número de iteraciones
+l = n / 150 #número de imágenes en función del número de iteraciones
+# se ajusta para que siempre sean 100 imágenes más la imagen de la condición inicial
 
-def condini(x, y):
-    z = np.zeros_like(x)  # se incia con un calor, por ejemplo con calor 0
-
-    # Línea de calor 0
-    z[:, -1] = 0  # borde derecho
-
-    # Líneas contiguas de calor bajo
-    z[:, 1] = cc  # linea contigua al borde izquierdo
-    z[1, :] = cc  # linea contigua al borde inferior
-    z[-2, :] = cc  # línea contigua al borde superior
-
-    # Líneas de calor en los bordes
-    z[:, 0] = cmax  # borde izquierdo
-    z[0, :] = cmax  # borde inferior
-    z[-1, :] = cmax  # borde superior
-
+# Función para condiciones iniciales
+def condini(shape):
+    z = np.zeros(shape)
+    z[:, 1] = z[1, :] = z[-2, :] = cc
+    z[:, -1] = 0
+    z[:, 0] = z[0, :] = z[-1, :] = cmax
     return z
 
+# Función para actualizar la distribución de calor utilizando numba
+@njit(parallel=True)
 def act_calor(Z):
-    nx, ny = Z.shape
-    Z_nuevo = np.copy(Z)  # se realiza una copia para poder modificar el estado
-
-    for i in range(1, nx - 1):
-        for j in range(1, ny - 1):
-            Z_nuevo[i,j] = Z[i,j] + (const_diff * dt / dx**2) * (
-                    Z[i+1,j]+Z[i-1,j]+Z[i,j+1]+Z[i,j-1]-4*Z[i,j])
-    # Mantenemos las condiciones iniciales de los bordes
-
-    # Línea de calor 0
-    Z_nuevo[:, -1] = 0  # borde derecho
-
-    # Líneas de calor en los bordes
-    Z_nuevo[:, 0] = cmax  # borde izquierdo
-    Z_nuevo[0, :] = cmax  # borde inferior
-    Z_nuevo[-1, :] = cmax  # borde superior
-
+    Z_nuevo = np.copy(Z)
+    for i in prange(1, Z.shape[0] - 1):
+        for j in prange(1, Z.shape[1] - 1):
+            Z_nuevo[i, j] = Z[i, j] + (const_diff * dt / dx ** 2) * (
+                    Z[(i + 1) % m, j] + Z[(i - 1) % m, j] + Z[i, (j + 1) % m] + Z[i, (j - 1) % m] - 4 * Z[i, j]
+            )
+    Z_nuevo[:, -1] = 0
+    Z_nuevo[:, 0] = Z_nuevo[0, :] = Z_nuevo[-1, :] = cmax
     return Z_nuevo
 
 # Generación de la malla y sus condiciones iniciales
-
 a = b = 1
-x = np.linspace(0, a, int(m+m/100))
-y = np.linspace(0, b, int(m+m/100))
+x = np.linspace(0, a, m)
+y = np.linspace(0, b, m)
 X, Y = np.meshgrid(x, y)
-Z = condini(X, Y)
+Z = condini(X.shape)
 
 # Directorio de salida de las imágenes
-
 output_dir = 'D:\\Usuario\\Documentos\\CursosUCR\\Física\\Física-Computacional\\Proyecto'
 os.makedirs(output_dir, exist_ok=True)
 
-# Imagen inicial con las condiciones iniciales
+def save_imagen(Z, iteration):
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=600)  # Ajusta el tamaño y la resolución según sea necesario
+    c = ax.pcolor(X, Y, Z, cmap=cm.jet, shading='auto', vmin=0, vmax=cmax)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    fig.colorbar(c)
+    plt.ylim(0 - 0.9 * dy, b + dy)  # Ajusta los límites y
+    plt.xlim(0 - dx, a + dx)  # asegúrate de que toda la malla sea visible
+    plt.savefig(os.path.join(output_dir, f'iteracion_{iteration}.png'), bbox_inches='tight', pad_inches=0.1)
+    plt.close(fig)
 
-fig = plt.figure(figsize=(8, 6), dpi=1200)
-ax = fig.add_subplot(111)
+# Guardar la imagen inicial
+save_imagen(Z, 0)
 
-c = ax.pcolor(X, Y, Z, edgecolors='k', linewidths=0.05, cmap=cm.jet, shading='auto', vmin=0, vmax=cmax)
-ax.set_xlabel("x", fontsize=15)
-ax.set_ylabel("y", fontsize=15)
-fig.colorbar(c) # en c definimos la barra para que siempre tenga los valores máximos (cmax=300) y mínimos (0)
-#Los límites son algo mayores para que la cuadrícula quede bien
-plt.ylim(0 - 0.8*dy, b + 0.8*dy)
-plt.xlim(0 - 0.8*dx, a + 0.8*dx)
-# Creamos el archivo con la imagen
-plt.savefig(os.path.join(output_dir, f'iteracion_{0}.png'), bbox_inches='tight', pad_inches=0.1)
-plt.close(fig)
-
-# Ahora iteramos para obtener las nuevas imágenes con las nuevas temperaturas
-
-n = 3000
-# Guardamos las figuras intermedias
-for k in range(n):
+# Iterar para actualizar y guardar imágenes
+for k in range(1, n + 1):
     Z = act_calor(Z)
-    if (k + 1) % 10 == 0:  # Guardar cada 10 iteraciones
-        fig = plt.figure(figsize=(8, 6), dpi=600)
-        ax = fig.add_subplot(111)
-        c = ax.pcolor(X, Y, Z, edgecolors='k', linewidths=0.05, cmap=cm.jet, shading='auto', vmin=0, vmax=cmax)
-        ax.set_xlabel("x", fontsize=15)
-        ax.set_ylabel("y", fontsize=15)
-        fig.colorbar(c)
-        plt.ylim(0 - 0.8*dy, b + 0.8*dy)
-        plt.xlim(0 - 0.8*dx, a + 0.8*dx)
-        plt.savefig(os.path.join(output_dir, f'iteracion_{k+1}.png'), bbox_inches='tight', pad_inches=0.1)
-        plt.close(fig)
+    if k % l == 0:
+        save_imagen(Z, k)
 
-# Creamos una lista de imágenes en orden
+# Creación del GIF
+
+# Crear lista de imágenes en el orden deseado
 imagenes = []
-for i in range(n + 1):  # +1 para incluir desde iteracion_0 hasta iteracion_n
-    imagen_path = os.path.join(output_dir, f'iteracion_{i}.png')
-    if os.path.exists(image_path):
-        imagenes.append(imageio.imread(imagen_path))
+for i in range(0, n + 1, int(l)):  # Solo cargar imágenes guardadas cada l iteraciones
+    imagen = os.path.join(output_dir, f'iteracion_{i}.png')
+    if os.path.exists(imagen):
+        imagenes.append(Image.open(imagen))
 
-# Ruta donde se guardará el GIF
-gif_path = os.path.join(output_dir, 'simulacion_termica.gif')
+# Guardamos el GIF incrementalmente para ahorrar memoria
+gif_path = os.path.join(output_dir, 'difusion_termica.gif')
+imagenes[0].save(gif_path, save_all=True, append_images=imagenes[1:], duration=100, loop=0, quality=95)
 
-# Creamos el GIF animado
-with imageio.get_writer(gif_path, mode='I', duration=0.5) as writer:
-    for frame in imagenes:
-        writer.append_data(frame)
+# Terminamos con el cálculo de ejecución del código
+fin_tiempo_global = time.time()
+print(f"Tiempo de ejecución del programa: {fin_tiempo_global-inicio_tiempo_global} segundos")
